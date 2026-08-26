@@ -7,6 +7,27 @@ type QrWithLogoProps = {
   value: string;
 };
 
+const COLOR_PRESETS: { name: string; bg: string; fg: string }[] = [
+  { name: "Cream", bg: "#FAF6ED", fg: "#3E3A34" },
+  { name: "White", bg: "#FFFFFF", fg: "#3E3A34" },
+  { name: "Sage", bg: "#FAF6ED", fg: "#4C6B54" },
+  { name: "Lavender", bg: "#FAF6ED", fg: "#6B5B95" },
+  { name: "Peach", bg: "#FAF6ED", fg: "#B9652E" },
+  { name: "Ink on cream", bg: "#FAF6ED", fg: "#1E1B17" },
+];
+
+// quick luminance check — warns if bg/fg are too close for a QR to scan reliably
+function isTooLowContrast(bg: string, fg: string) {
+  const lum = (hex: string) => {
+    const c = hex.replace("#", "");
+    const r = parseInt(c.substring(0, 2), 16) / 255;
+    const g = parseInt(c.substring(2, 4), 16) / 255;
+    const b = parseInt(c.substring(4, 6), 16) / 255;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  return Math.abs(lum(bg) - lum(fg)) < 0.35;
+}
+
 export default function QrWithLogo({ value }: QrWithLogoProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -16,12 +37,18 @@ export default function QrWithLogo({ value }: QrWithLogoProps) {
   const [logoScale, setLogoScale] = useState(0.24);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Colors — bgColor is the QR background, fgColor is the dot/module color
+  const [bgColor, setBgColor] = useState("#FAF6ED");
+  const [fgColor, setFgColor] = useState("#3E3A34");
+
+  const lowContrast = isTooLowContrast(bgColor, fgColor);
+
   // Generate QR whenever settings change
   useEffect(() => {
     if (!value || !canvasRef.current) return;
 
     generateQR();
-  }, [value, size, logoDataUrl, logoScale]);
+  }, [value, size, logoDataUrl, logoScale, bgColor, fgColor]);
 
   const generateQR = async () => {
     if (!canvasRef.current || !value) return;
@@ -37,10 +64,10 @@ export default function QrWithLogo({ value }: QrWithLogoProps) {
         margin: 2,
         errorCorrectionLevel: "H",
 
-        // Your component's colors
+        // User-selected colors
         color: {
-          dark: "#3E3A34",
-          light: "#FAF6ED",
+          dark: fgColor,
+          light: bgColor,
         },
       });
 
@@ -68,12 +95,12 @@ export default function QrWithLogo({ value }: QrWithLogoProps) {
         const centerX = size / 2;
         const centerY = size / 2;
 
-        // White backing plate
+        // Backing plate — matches the chosen background so it blends in
         const plateSize = logoBoxSize + padding * 2;
 
         ctx.save();
 
-        ctx.fillStyle = "#FAF6ED";
+        ctx.fillStyle = bgColor;
 
         roundRect(
           ctx,
@@ -151,6 +178,12 @@ export default function QrWithLogo({ value }: QrWithLogoProps) {
     setLogoName("");
   };
 
+  // Apply a color preset
+  const applyPreset = (preset: { bg: string; fg: string }) => {
+    setBgColor(preset.bg);
+    setFgColor(preset.fg);
+  };
+
   // Download QR
   const download = () => {
     if (!canvasRef.current) return;
@@ -168,6 +201,153 @@ export default function QrWithLogo({ value }: QrWithLogoProps) {
 
       {/* SETTINGS CARD */}
       <div className="bg-white border border-[#D8DED2] rounded-[14px] p-7">
+
+        {/* COLORS */}
+        <div className="mb-6">
+          <label className="block font-semibold text-sm mb-2 text-[#3E3A34]">
+            Colors
+          </label>
+
+          <p className="text-xs text-[#3E5158] mb-3">
+            Pick a background and a QR color, or use a preset below.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            {/* BACKGROUND COLOR */}
+            <div>
+              <label className="block text-xs font-medium text-[#3E5158] mb-1.5">
+                Background
+              </label>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={bgColor}
+                  onChange={(e) => setBgColor(e.target.value)}
+                  className="
+                    h-10
+                    w-10
+                    rounded-md
+                    border
+                    border-[#D8DED2]
+                    cursor-pointer
+                    bg-transparent
+                    p-0.5
+                  "
+                />
+
+                <input
+                  type="text"
+                  value={bgColor}
+                  onChange={(e) => setBgColor(e.target.value)}
+                  className="
+                    flex-1
+                    border-[1.5px]
+                    border-[#D8DED2]
+                    rounded-[10px]
+                    px-3
+                    py-2
+                    text-sm
+                    text-[#3E3A34]
+                    bg-[#FBFCFA]
+                    outline-none
+                    focus:border-[#3E3A34]
+                  "
+                />
+              </div>
+            </div>
+
+            {/* QR / FOREGROUND COLOR */}
+            <div>
+              <label className="block text-xs font-medium text-[#3E5158] mb-1.5">
+                QR color
+              </label>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={fgColor}
+                  onChange={(e) => setFgColor(e.target.value)}
+                  className="
+                    h-10
+                    w-10
+                    rounded-md
+                    border
+                    border-[#D8DED2]
+                    cursor-pointer
+                    bg-transparent
+                    p-0.5
+                  "
+                />
+
+                <input
+                  type="text"
+                  value={fgColor}
+                  onChange={(e) => setFgColor(e.target.value)}
+                  className="
+                    flex-1
+                    border-[1.5px]
+                    border-[#D8DED2]
+                    rounded-[10px]
+                    px-3
+                    py-2
+                    text-sm
+                    text-[#3E3A34]
+                    bg-[#FBFCFA]
+                    outline-none
+                    focus:border-[#3E3A34]
+                  "
+                />
+              </div>
+            </div>
+
+          </div>
+
+          {/* PRESETS */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {COLOR_PRESETS.map((preset) => (
+              <button
+                key={preset.name}
+                type="button"
+                onClick={() => applyPreset(preset)}
+                title={preset.name}
+                className="
+                  flex
+                  items-center
+                  gap-1.5
+                  border
+                  border-[#D8DED2]
+                  rounded-full
+                  pl-1
+                  pr-3
+                  py-1
+                  text-xs
+                  text-[#3E5158]
+                  hover:border-[#3E3A34]
+                  transition
+                "
+              >
+                <span
+                  className="w-4 h-4 rounded-full border border-[#D8DED2]"
+                  style={{ backgroundColor: preset.bg }}
+                />
+                <span
+                  className="w-4 h-4 rounded-full border border-[#D8DED2] -ml-2"
+                  style={{ backgroundColor: preset.fg }}
+                />
+                {preset.name}
+              </button>
+            ))}
+          </div>
+
+          {lowContrast && (
+            <p className="mt-3 text-xs text-[#B93E28] bg-[#FBF1DE] rounded-md px-3 py-2">
+              These two colors are close in brightness — the code may not scan
+              reliably. Try a lighter background or a darker QR color.
+            </p>
+          )}
+        </div>
 
         {/* Logo */}
         <div className="mb-6">
@@ -345,13 +525,13 @@ export default function QrWithLogo({ value }: QrWithLogoProps) {
 
           <canvas
             ref={canvasRef}
+            style={{ backgroundColor: bgColor }}
             className="
               max-w-full
               h-auto
               rounded-[14px]
               border
               border-[#D8DED2]
-              bg-[#FAF6ED]
             "
           />
 
@@ -364,10 +544,10 @@ export default function QrWithLogo({ value }: QrWithLogoProps) {
                 items-center
                 justify-center
                 rounded-[14px]
-                bg-[#FAF6ED]/80
                 text-sm
                 text-[#3E5158]
               "
+              style={{ backgroundColor: `${bgColor}CC` }}
             >
               Generating...
             </div>
@@ -397,7 +577,7 @@ export default function QrWithLogo({ value }: QrWithLogoProps) {
 
         {/* NOTE */}
         <p className="mt-4 text-center text-xs leading-relaxed text-[#3E5158] max-w-md">
-          Generated with high error correction so the logo doesn't
+          Generated with high error correction so the logo doesnt
           interfere with scanning. Always{" "}
           <strong className="text-[#3E3A34]">
             test-scan it
